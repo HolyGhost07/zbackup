@@ -8,9 +8,9 @@ import (
 	"syscall"
 
 	"github.com/BurntSushi/toml"
+	"github.com/HolyGhost07/runcmd"
+	"github.com/HolyGhost07/zfs"
 	"github.com/op/go-logging"
-	"github.com/theairkit/runcmd"
-	"github.com/theairkit/zfs"
 )
 
 var (

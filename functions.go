@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/theairkit/runcmd"
-	"github.com/theairkit/zfs"
+	"github.com/HolyGhost07/runcmd"
+	"github.com/HolyGhost07/zfs"
 )
 
 type Backuper struct {
@@ -61,17 +61,17 @@ func (backuper *Backuper) setupTasks() []BackupTask {
 
 	for _, backup := range config {
 		if backup.RemotePrefix != "" && backup.Recursive {
-			log.Error("%s: %s", backup.Local, errPrefix)
+			log.Errorf("%s: %s", backup.Local, errPrefix)
 			continue
 		}
 		if backup.Recursive && strings.HasSuffix(backup.Local, "*") {
-			log.Error("%s: %s", backup.Local, errRegex)
+			log.Errorf("%s: %s", backup.Local, errRegex)
 			continue
 		}
 
 		fsList, err := backuper.srcZfs.List(backup.Local, zfs.FS, backup.Recursive)
 		if err != nil {
-			log.Error("error get filesystems: %s", err.Error())
+			log.Errorf("error get filesystems: %s", err.Error())
 			continue
 		}
 		for _, src := range fsList {
@@ -104,7 +104,7 @@ func (task *BackupTask) doBackup() error {
 	snapNew += task.snapSuff
 
 	// Check if snapshot with timestamp-based name already exists:
-	log.Debug("[%d]: check %s exists", id, dst+"@"+snapPostfix)
+	log.Debugf("[%d]: check %s exists", id, dst+"@"+snapPostfix)
 	if exist, err := task.dstZfs.ExistSnap(dst, snapPostfix); err != nil || exist {
 		if err != nil {
 			return err
@@ -115,7 +115,7 @@ func (task *BackupTask) doBackup() error {
 	// Check, if backup for the first time or not:
 	// @zbackup_curr not exist: create it and send
 	// @zbackup_curr exist: create @zbackup_new, and send delta between them
-	log.Debug("[%d]: check %s exists", id, src+"@"+snapCurr)
+	log.Debugf("[%d]: check %s exists", id, src+"@"+snapCurr)
 	if exist, err := task.srcZfs.ExistSnap(src, snapCurr); err != nil || !exist {
 		if err != nil {
 			return err
@@ -143,12 +143,12 @@ func (task *BackupTask) backupHelper(snapNew string) error {
 		snap = snapNew
 	}
 
-	log.Debug("[%d]: create snapshot: %s...", id, snap)
+	log.Debugf("[%d]: create snapshot: %s...", id, snap)
 	if err := task.srcZfs.CreateSnap(src, snap); err != nil {
 		return err
 	}
 
-	log.Debug("[%d]: check, if %s exists...", id, task.dstroot)
+	log.Debugf("[%d]: check, if %s exists...", id, task.dstroot)
 	exist, err := task.dstZfs.ExistFs(task.dstroot)
 	if err != nil {
 		return err
@@ -157,22 +157,15 @@ func (task *BackupTask) backupHelper(snapNew string) error {
 		task.dstZfs.CreateFs(task.dstroot)
 	}
 
-	log.Debug("[%d]: start recieve snapshot on remote...", id)
+	log.Debugf("[%d]: start recieve snapshot on remote...", id)
 	cmdRecv, err := task.dstZfs.RecvSnap(dst, snapPostfix)
 	if err != nil {
 		return err
 	}
 
-	log.Debug("[%d]: copy snapshot from local to remote...", id)
-	cmdSend, err := task.srcZfs.SendSnap(src, snapCurr, snapNew, cmdRecv)
+	log.Debugf("[%d]: copy snapshot from local to remote...", id)
+	err = task.srcZfs.SendSnap(src, snapCurr, snapNew, cmdRecv)
 	if err != nil {
-		return err
-	}
-
-	if err := cmdSend.Wait(); err != nil {
-		return err
-	}
-	if err := cmdRecv.Wait(); err != nil {
 		return err
 	}
 
@@ -186,12 +179,12 @@ func (task *BackupTask) backupHelper(snapNew string) error {
 		}
 	}
 
-	log.Debug("[%d]: set remote %s 'readonly'...", id, dst)
+	log.Debugf("[%d]: set remote %s 'readonly'...", id, dst)
 	if err := task.dstZfs.SetProperty(dst, "readonly", "on"); err != nil {
 		return err
 	}
 
-	log.Debug("[%d]: set remote %s 'zbackup:=true'...", id, dst+snapPostfix)
+	log.Debugf("[%d]: set remote %s 'zbackup:=true'...", id, dst+snapPostfix)
 	return task.dstZfs.SetProperty(dst+"@"+snapPostfix, PROPERTY, "true")
 }
 
@@ -200,9 +193,9 @@ func (task *BackupTask) cleanExpired() error {
 	dst := task.dst
 	expire := task.expire
 
-	log.Debug("[%d]: cleaning expired snapshots, expire: %s", id, expire)
+	log.Debugf("[%d]: cleaning expired snapshots, expire: %s", id, expire)
 	if expire == "" {
-		log.Info("[%d]: expire is not set, exit", id)
+		log.Infof("[%d]: expire is not set, exit", id)
 		return nil
 	}
 
@@ -211,13 +204,13 @@ func (task *BackupTask) cleanExpired() error {
 		return err
 	}
 
-	log.Debug("[%d]: get list remote snapshots...", id)
+	log.Debugf("[%d]: get list remote snapshots...", id)
 	list, err := task.dstZfs.ListFsSnap(dst)
 	if err != nil {
 		return err
 	}
 	if len(list) == 1 {
-		log.Info("[%d] only one snapshot, nothing to delete", id)
+		log.Infof("[%d] only one snapshot, nothing to delete", id)
 		return nil
 	}
 	for _, snap := range list {
@@ -226,14 +219,14 @@ func (task *BackupTask) cleanExpired() error {
 			return err
 		}
 		if out != "true" {
-			log.Debug("[%d]: %s is not created by zbackup, skipping", id, snap)
+			log.Debugf("[%d]: %s is not created by zbackup, skipping", id, snap)
 			continue
 		}
 		if task.expire == "lastone" {
 			if snap != recent {
-				log.Debug("[%d]: %s will be destroy (not recent)", id, snap)
+				log.Debugf("[%d]: %s will be destroy (not recent)", id, snap)
 				if err := task.dstZfs.Destroy(snap); err != nil {
-					log.Error("[%d]: error destroying %s: %s", id, snap, err.Error())
+					log.Errorf("[%d]: error destroying %s: %s", id, snap, err.Error())
 				}
 			}
 			continue
@@ -246,14 +239,14 @@ func (task *BackupTask) cleanExpired() error {
 		)
 		expire, _ := time.ParseDuration(expire)
 		if time.Since(poolDate) > expire {
-			log.Debug("[%d]: %s will be destroy (>%s)", id, snap, expire)
+			log.Debugf("[%d]: %s will be destroy (>%s)", id, snap, expire)
 
 			if err := task.dstZfs.Destroy(snap); err != nil {
-				log.Error("[%d]: error destroying %s: %s", id, snap, err.Error())
+				log.Errorf("[%d]: error destroying %s: %s", id, snap, err.Error())
 				continue
 			}
 		} else {
-			log.Debug("[%d]: %s not exipred, skipping", id, snap)
+			log.Debugf("[%d]: %s not exipred, skipping", id, snap)
 		}
 	}
 	return nil

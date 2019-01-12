@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	version = "1.4.5"
+	version string
 
 	usage = `
 Usage:
@@ -87,7 +87,7 @@ func main() {
 	if arguments["-u"] != nil {
 		maxio, err := strconv.Atoi(arguments["--iothreads"].(string))
 		if err != nil {
-			log.Error("%s", err.Error())
+			log.Errorf("%s", err.Error())
 			exitCode = 1
 			return
 		}
@@ -112,7 +112,7 @@ func main() {
 		config, err = loadConfigFromFile(arguments["-c"].(string))
 	}
 	if err != nil {
-		log.Error("error loading config:  %s", err.Error())
+		log.Errorf("error loading config:  %s", err.Error())
 		exitCode = 1
 		return
 	}
@@ -139,7 +139,7 @@ func main() {
 	mt := make(chan struct{}, config.MaxIoThreads)
 	for i, _ := range backupTasks {
 		if arguments["--dry-run"].(bool) {
-			log.Info("[%d]: %s -> %s %s",
+			log.Infof("[%d]: %s -> %s %s",
 				i,
 				backupTasks[i].src,
 				backuper.config.Host,
@@ -150,12 +150,12 @@ func main() {
 		wg.Add(1)
 		mt <- struct{}{}
 		go func(id int) {
-			log.Info("[%d]: starting backup", id)
+			log.Infof("[%d]: starting backup", id)
 			if err := backupTasks[id].doBackup(); err != nil {
-				log.Error("[%d]: %s", id, err.Error())
+				log.Errorf("[%d]: %s", id, err.Error())
 				exitCode = 1
 			} else {
-				log.Info("[%d]: backup done", id)
+				log.Infof("[%d]: backup done", id)
 			}
 			<-mt
 			wg.Done()

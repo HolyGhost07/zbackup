@@ -11,18 +11,17 @@ zbackup is a multithreading zfs backuping (via snapshots) tool
 ###Installation:
 from sources:
 ```bash
-go get github.com/theairkit/runcmd
-go get github.com/theairkit/zfs
-git clone github.com/theairkit/zbackup .
-go install
+git clone https://github.com/HolyGhost07/zbackup.git
+
+make
 ```
 
 for archlinux users there are PKGBUILD file:
 ```bash
-git clone https://github.com/theairkit/zbackup.git
-cd zbackup
-git checkout pkgbuild-github
-makepkg
+git clone https://github.com/HolyGhost07/zbackup.git
+git checkout pkgbuild
+
+makepkg -s
 ```
 
 ###Description and examples
